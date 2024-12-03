@@ -2,88 +2,7 @@ import React, { useState, useEffect } from "react";
 import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
 import Alert from "./Alert";
 import Confetti from "react-confetti";
-
-// Sample tasks
-const initialTasks = [
-  {
-    id: "task11",
-    text: "Complete project documentation",
-    dueDate: new Date(Date.now() + 3600 * 1000), // 1 hour from now
-    status: "todo",
-  },
-  {
-    id: "task12",
-    text: "Review pull requests",
-    dueDate: new Date(Date.now() + 600 * 1000), // In 10 minutes
-    status: "todo",
-  },
-  {
-    id: "task1r3",
-    text: "Update team on project progress",
-    dueDate: new Date(Date.now() + 3600 * 1000), // In 1 hour
-    status: "todo",
-  },
-  {
-    id: "task1",
-    text: "Complete project documentation",
-    dueDate: new Date(Date.now() - 3600 * 1000), // 1 hour ago
-    status: "todo",
-  },
-  {
-    id: "task2",
-    text: "Review pull requests",
-    dueDate: new Date(Date.now() + 600 * 1000), // In 10 minutes
-    status: "todo",
-  },
-  {
-    id: "task3",
-    text: "Update team on project progress",
-    dueDate: new Date(Date.now() + 3600 * 1000), // In 1 hour
-    status: "todo",
-  },
-  {
-    id: "task4",
-    text: "Submit end-of-week report",
-    dueDate: new Date(Date.now() - 600 * 1000), // 10 minutes ago
-    status: "todo",
-  },
-  {
-    id: "task5",
-    text: "Fix bug in login feature",
-    dueDate: new Date(Date.now() + 2 * 3600 * 1000), // In 2 hours
-    status: "todo",
-  },
-  {
-    id: "task6",
-    text: "Prepare for client presentation",
-    dueDate: new Date(Date.now() + 24 * 3600 * 1000), // In 24 hours
-    status: "todo",
-  },
-  {
-    id: "task7",
-    text: "Deploy latest build to production",
-    dueDate: new Date(Date.now() - 24 * 3600 * 1000), // 24 hours ago
-    status: "todo",
-  },
-  {
-    id: "task8",
-    text: "Organize design review meeting",
-    dueDate: new Date(Date.now() + 1800 * 1000), // In 30 minutes
-    status: "todo",
-  },
-  {
-    id: "task9",
-    text: "Optimize database queries",
-    dueDate: new Date(Date.now() - 1800 * 1000), // 30 minutes ago
-    status: "todo",
-  },
-  {
-    id: "task10",
-    text: "Refactor authentication module",
-    dueDate: new Date(Date.now() + 12 * 3600 * 1000), // In 12 hours
-    status: "todo",
-  },
-];
+import { initialTasks } from "./tasks";
 
 // Columns for DnD
 const columns = ["todo", "in-progress", "done"];
@@ -94,8 +13,9 @@ const Board = () => {
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
   const [taskId, setTaskId] = useState<string | null>(null);
   const [showConfetti, setShowConfetti] = useState(false);
+  const [totalPoints, setTotalPoints] = useState(0); // Track the total points
 
-  // Function to calculate the remaining time
+  // Function to calculate the remaining time in minutes
   const getRemainingTime = (dueDate: Date): string => {
     const now = new Date();
     const timeDiff = dueDate.getTime() - now.getTime();
@@ -156,6 +76,20 @@ const Board = () => {
     return () => clearInterval(interval);
   }, [tasks]);
 
+  // Calculate points based on remaining time (or overdue time)
+  const calculatePoints = (dueDate: Date): number => {
+    const now = new Date();
+    const timeDiff = dueDate.getTime() - now.getTime();
+    const minutesLeft = Math.floor(timeDiff / 60000); // Time left in minutes
+
+    // If the task is overdue, reduce points based on overdue time
+    if (minutesLeft < 0) {
+      return Math.max(-minutesLeft, 0); // Deduct points for overdue time
+    } else {
+      return minutesLeft; // Award points based on remaining minutes
+    }
+  };
+
   // Handle DnD functionality
   const onDragEnd = (result: any) => {
     const { source, destination } = result;
@@ -169,11 +103,19 @@ const Board = () => {
     movedTask.status = destination.droppableId; // Update task status
     updatedTasks.splice(destination.index, 0, movedTask);
 
-    // If task is moved to "done" and is due or almost due, show confetti
+    // If task is moved to "done", calculate points based on remaining time or overdue
     if (movedTask.status === "done") {
+      const points = calculatePoints(movedTask.dueDate); // Calculate points based on due date
+      movedTask.points = points; // Set points for the task
       setShowConfetti(true);
       setTimeout(() => setShowConfetti(false), 3000); // Show confetti for 3 seconds
     }
+
+    // Update total points, ensuring we are summing only numeric values
+    const totalPoints = updatedTasks.reduce((sum, task) => {
+      return sum + (isNaN(task.points) ? 0 : task.points); // Safeguard against NaN
+    }, 0);
+    setTotalPoints(totalPoints); // Update the total points
 
     setTasks(updatedTasks);
   };
@@ -188,6 +130,10 @@ const Board = () => {
       {showConfetti && (
         <Confetti width={window.innerWidth} height={window.innerHeight} />
       )}
+
+      <div style={{ marginBottom: "20px" }}>
+        <h2>Total Points: {totalPoints}</h2>
+      </div>
 
       <DragDropContext onDragEnd={onDragEnd}>
         {columns.map((column) => (

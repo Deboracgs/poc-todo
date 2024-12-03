@@ -1,4 +1,4 @@
-export const tasks = [
+export const initialTasks = [
   {
     id: "task1",
     text: "Complete project documentation",
